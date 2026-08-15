@@ -1,0 +1,38 @@
+name: Android Build
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # Позволяет запускать сборку вручную кнопкой в интерфейсе GitHub
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Make gradlew executable
+      run: chmod +x ./gradlew
+
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: me_dial_tube-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
+    ```
+
+Когда мы закончим загружать весь код приложения, GitHub автоматически прочитает этот файл, скачает нужные библиотеки, соберет проект и прикрепит готовый APK-файл в раздел "Actions" твоего репозитория.
+
+<FollowUp label="Готово! Давай следующий код (Сетевой слой API)" query="Файл для GitHub готов. Выдавай Шаг 3: Сетевой слой и API клиента MeTube."/>
