@@ -159,17 +159,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Проверка соединения в настройках
     fun testConnection() {
         viewModelScope.launch {
-            _connectionStatus.value = "Проверка..."
+            val targetUrl = if (serverUrl.value.endsWith("/")) serverUrl.value else "${serverUrl.value}/"
+            _connectionStatus.value = "Запрос к: ${targetUrl}history ..."
             try {
                 val api = NetworkClient.createApi(serverUrl.value)
                 val response = api.getHistory()
                 if (response.isSuccessful) {
-                    _connectionStatus.value = "✓ Сервер доступен"
+                    _connectionStatus.value = "✓ Сервер доступен (Код 200 OK)"
                 } else {
-                    _connectionStatus.value = "✕ Не удалось подключиться (Код ${response.code()})"
+                    val errorBody = response.errorBody()?.string()?.take(100) ?: "нет деталей"
+                    _connectionStatus.value = "✕ Ошибка HTTP ${response.code()}: $errorBody\nURL: ${targetUrl}history"
                 }
             } catch (e: Exception) {
-                _connectionStatus.value = "✕ Не удалось подключиться"
+                _connectionStatus.value = "✕ Ошибка сети: ${e.localizedMessage ?: e.javaClass.simpleName}\nПроверьте доступность IP и порта"
             }
         }
     }
