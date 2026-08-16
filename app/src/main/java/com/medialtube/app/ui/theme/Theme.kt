@@ -12,12 +12,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-// Типы доступных тем
 enum class AppThemeStyle {
     SYSTEM, LIGHT, DARK, RETRO_98, RETRO_XP
 }
 
-// Дополнительные параметры стиля для ретро-дизайна
+// Расширенные параметры стиля для ретро-дизайна
 data class ExtendedColors(
     val isRetro: Boolean = false,
     val retroType: AppThemeStyle = AppThemeStyle.SYSTEM,
@@ -25,15 +24,17 @@ data class ExtendedColors(
     val windowHeaderFg: Color = Color.Unspecified,
     val borderLight: Color = Color.Unspecified,
     val borderDark: Color = Color.Unspecified,
-    val cardBackground: Color = Color.Unspecified
+    val cardBackground: Color = Color.Unspecified,
+    val desktopBackground: Color = Color.Unspecified, // Фон рабочего стола
+    val xpTaskbarBlue: Color = Color.Unspecified,     // Панель задач XP
+    val xpStartGreen: Color = Color.Unspecified       // Кнопка Пуск XP
 )
 
 val LocalExtendedColors = staticCompositionLocalOf { ExtendedColors() }
 
-// Цветовые палитры
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF4A6572),
-    secondary = Color(0xFF344955),
+    primary = Color(0xFFE53935), // Акцент в стиле YouTube
+    secondary = Color(0xFF546E7A),
     background = Color(0xFFF5F5F5),
     surface = Color.White,
     onPrimary = Color.White,
@@ -42,32 +43,30 @@ private val LightColors = lightColorScheme(
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF78909C),
-    secondary = Color(0xFF90A4AE),
-    background = Color(0xFF1E1E1E),
-    surface = Color(0xFF2D2D2D),
+    primary = Color(0xFFEF5350),
+    secondary = Color(0xFF78909C),
+    background = Color(0xFF121212),
+    surface = Color(0xFF1E1E1E),
     onPrimary = Color.Black,
     onBackground = Color(0xFFE0E0E0),
     onSurface = Color(0xFFE0E0E0)
 )
 
-// Палитра Windows 98
 private val Retro98Colors = lightColorScheme(
-    primary = Color(0xFF000080),     // Классический синий заголовок
-    secondary = Color(0xFF808080),   // Серый рамки
-    background = Color(0xFFC0C0C0),  // Серый фон Windows 98
-    surface = Color(0xFFFFFFFF),     // Белые области ввода/списков
+    primary = Color(0xFF000080),     
+    secondary = Color(0xFF808080),   
+    background = Color(0xFF008080),  // Бирюзовый рабочий стол 98
+    surface = Color(0xFFC0C0C0),     // Серые окна
     onPrimary = Color.White,
     onBackground = Color.Black,
     onSurface = Color.Black
 )
 
-// Палитра Windows XP (Luna Blue)
 private val RetroXPColors = lightColorScheme(
-    primary = Color(0xFF0055EA),     // Синяя шапка XP
-    secondary = Color(0xFF225AD6),   // Акцент XP
-    background = Color(0xFFECE9D8),  // Светло-серый/бежевый XP
-    surface = Color(0xFFFFFFFF),
+    primary = Color(0xFF0055EA),     
+    secondary = Color(0xFF245EDC),   
+    background = Color(0xFF87CEEB),  // Голубое небо XP
+    surface = Color(0xFFECE9D8),     // Окна XP
     onPrimary = Color.White,
     onBackground = Color.Black,
     onSurface = Color.Black
@@ -96,7 +95,8 @@ fun MeDialTubeTheme(
             windowHeaderFg = Color.White,
             borderLight = Color.White,
             borderDark = Color(0xFF808080),
-            cardBackground = Color(0xFFC0C0C0)
+            cardBackground = Color(0xFFC0C0C0),
+            desktopBackground = Color(0xFF008080)
         )
         AppThemeStyle.RETRO_XP -> ExtendedColors(
             isRetro = true,
@@ -105,7 +105,10 @@ fun MeDialTubeTheme(
             windowHeaderFg = Color.White,
             borderLight = Color(0xFF0053E1),
             borderDark = Color(0xFF003C9D),
-            cardBackground = Color(0xFFF7F5EF)
+            cardBackground = Color(0xFFECE9D8),
+            desktopBackground = Color(0xFF87CEEB), // Небо "Безмятежности"
+            xpTaskbarBlue = Color(0xFF245EDC),
+            xpStartGreen = Color(0xFF3C9E3F)
         )
         else -> ExtendedColors(isRetro = false)
     }
@@ -120,7 +123,7 @@ fun MeDialTubeTheme(
     }
 }
 
-// Модификатор для рисования классического 3D-бордюра Win98/WinXP
+// Модификатор для рисования классического 3D-бордюра
 fun Modifier.retro3DBorder(
     lightColor: Color = Color.White,
     darkColor: Color = Color(0xFF808080),
@@ -131,12 +134,8 @@ fun Modifier.retro3DBorder(
     val topLeft = if (pressed) darkColor else lightColor
     val bottomRight = if (pressed) lightColor else darkColor
 
-    // Top
     drawLine(topLeft, Offset(0f, strokeWidth / 2), Offset(size.width, strokeWidth / 2), strokeWidth)
-    // Left
     drawLine(topLeft, Offset(strokeWidth / 2, 0f), Offset(strokeWidth / 2, size.height), strokeWidth)
-    // Bottom
     drawLine(bottomRight, Offset(0f, size.height - strokeWidth / 2), Offset(size.width, size.height - strokeWidth / 2), strokeWidth)
-    // Right
     drawLine(bottomRight, Offset(size.width - strokeWidth / 2, 0f), Offset(size.width - strokeWidth / 2, size.height), strokeWidth)
 }
