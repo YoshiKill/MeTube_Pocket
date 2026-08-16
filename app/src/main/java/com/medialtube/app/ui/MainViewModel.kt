@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
+import com.google.gson.JsonElement
 import com.medialtube.app.data.SettingsRepository
 import com.medialtube.app.data.api.AddRequest
 import com.medialtube.app.data.api.DownloadItem
@@ -50,7 +52,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _connectionStatus = MutableStateFlow<String?>(null)
     val connectionStatus: StateFlow<String?> = _connectionStatus.asStateFlow()
 
-    // --- Система логов ---
     private val _logs = MutableStateFlow<List<String>>(emptyList())
     val logs: StateFlow<List<String>> = _logs.asStateFlow()
 
@@ -64,14 +65,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var isFirstLoad = true
 
     init {
-        addLog("Приложение запущено, читаем настройки...")
+        addLog("Приложение запущено...")
         viewModelScope.launch {
             repository.serverUrl.collect { url -> 
                 serverUrl.value = url
-                addLog("URL сервера загружен: $url")
                 if (isFirstLoad) {
                     isFirstLoad = false
-                    addLog("Авто-старт поллинга при запуске")
                     startPolling()
                 }
             }
@@ -94,7 +93,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return
             val extractedUrl = Regex("""https?://[^\s]+""").find(text)?.value ?: text.trim()
             if (extractedUrl.isNotEmpty()) {
-                addLog("Перехвачена ссылка из Share: $extractedUrl")
                 sharedUrl.value = extractedUrl
                 _currentScreen.value = Screen.NEW_VIDEO
             }
@@ -127,22 +125,41 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (response.isSuccessful) {
                 val body = response.body()
                 val list = mutableListOf<DownloadItem>()
-                body?.queue?.let { list.addAll(it) }
-                body?.done?.let { list.addAll(it) }
-                body?.history?.let { list.addAll(it) }
+                val gson = Gson()
+                
+                // Умный парсер, который достает UUID напрямую из ключей JSON-объекта
+                fun parseSection(element: JsonElement?) {
+                    if (element == null) return
+                    if (element.isJsonObject) {
+                        element.asJsonObject.entrySet().forEach { entry ->
+                            val uuid = entry.key
+                            val item = gson.fromJson(entry.value, DownloadItem::class.java)
+                            list.add(item.copy(id = uuid)) // Подменяем ID видео на системный UUID!
+                        }
+                    } else if (element.isJsonArray) {
+                        element.asJsonArray.forEach { arrayElem ->
+                            if (arrayElem.isJsonObject) {
+                                val item = gson.fromJson(arrayElem, DownloadItem::class.java)
+                                list.add(item)
+                            }
+                        }
+                    }
+                }
+
+                parseSection(body?.get("queue"))
+                parseSection(body?.get("done"))
+                parseSection(body?.get("history"))
+                
                 _downloads.value = list.distinctBy { it.id ?: it.title ?: it.url }
-            } else {
-                addLog("fetchHistory ошибка HTTP: ${response.code()}")
             }
         } catch (e: Exception) {
-            if (_downloads.value.isEmpty()) addLog("Сбой fetchHistory: ${e.message}")
+            if (_downloads.value.isEmpty()) addLog("Сбой истории: ${e.message}")
         }
     }
 
     fun submitDownload(onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
-            addLog("Отправка нового задания: ${sharedUrl.value}")
             try {
                 val finalQuality = when {
                     downloadType.value == "audio" -> "audio"
@@ -156,74 +173,41 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 _isLoading.value = false
                 if (response.isSuccessful) {
-                    addLog("Задание успешно добавлено (Код: ${response.code()})")
                     sharedUrl.value = ""
                     navigateTo(Screen.DOWNLOADS)
                     onSuccess()
                 } else {
-                    val err = "Ошибка сервера: ${response.code()}"
-                    addLog(err)
-                    onError(err)
+                    onError("Ошибка сервера: ${response.code()}")
                 }
             } catch (e: Exception) {
                 _isLoading.value = false
-                val err = "Сервер MeTube недоступен: ${e.message}"
-                addLog(err)
-                onError(err)
+                onError("Сервер недоступен")
             }
         }
     }
 
-    // --- Обработчики меню с логированием ---
-    
-    fun cancelDownload(id: String) {
+    fun deleteAction(id: String) {
         viewModelScope.launch {
-            addLog("-> Вызвана отмена (cancel) для ID: $id")
+            addLog("-> Отправка команды DELETE для UUID: $id")
             try {
                 val response = NetworkClient.createApi(serverUrl.value).deleteDownloads(IdsRequest(listOf(id)))
-                addLog("<- Ответ отмены: Код ${response.code()}, Body: ${response.errorBody()?.string() ?: "OK"}")
+                addLog("<- Ответ сервера: Код ${response.code()}")
                 fetchHistory()
             } catch (e: Exception) {
-                addLog("<- Исключение отмены: ${e.message}")
+                addLog("<- Ошибка удаления: ${e.message}")
             }
         }
     }
 
-    fun retryDownload(id: String) {
+    fun retryAction(id: String) {
         viewModelScope.launch {
-            addLog("-> Вызван повтор (retry) для ID: $id")
+            addLog("-> Отправка команды START (retry) для UUID: $id")
             try {
                 val response = NetworkClient.createApi(serverUrl.value).retryDownloads(IdsRequest(listOf(id)))
-                addLog("<- Ответ повтора: Код ${response.code()}")
+                addLog("<- Ответ сервера: Код ${response.code()}")
                 fetchHistory()
             } catch (e: Exception) {
-                addLog("<- Исключение повтора: ${e.message}")
-            }
-        }
-    }
-
-    fun deleteFromHistory(id: String) {
-        viewModelScope.launch {
-            addLog("-> Вызвано удаление из истории для ID: $id")
-            try {
-                val response = NetworkClient.createApi(serverUrl.value).deleteDownloads(IdsRequest(listOf(id)))
-                addLog("<- Ответ удаления: Код ${response.code()}, Body: ${response.errorBody()?.string() ?: "OK"}")
-                fetchHistory()
-            } catch (e: Exception) {
-                addLog("<- Исключение удаления: ${e.message}")
-            }
-        }
-    }
-
-    fun deleteWithFile(id: String) {
-        viewModelScope.launch {
-            addLog("-> Вызвано полное удаление с файлом для ID: $id")
-            try {
-                val response = NetworkClient.createApi(serverUrl.value).deleteFiles(IdsRequest(listOf(id)))
-                addLog("<- Ответ полного удаления: Код ${response.code()}, Body: ${response.errorBody()?.string() ?: "OK"}")
-                fetchHistory()
-            } catch (e: Exception) {
-                addLog("<- Исключение полного удаления: ${e.message}")
+                addLog("<- Ошибка повтора: ${e.message}")
             }
         }
     }
@@ -232,20 +216,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val targetUrl = if (serverUrl.value.endsWith("/")) serverUrl.value else "${serverUrl.value}/"
             _connectionStatus.value = "Запрос к: ${targetUrl}history ..."
-            addLog("Тест соединения с: ${targetUrl}history")
+            addLog("Тест соединения...")
             try {
                 val response = NetworkClient.createApi(serverUrl.value).getHistory()
                 if (response.isSuccessful) {
-                    _connectionStatus.value = "✓ Сервер доступен (Код 200 OK)"
-                    addLog("Тест успешен: HTTP 200")
+                    _connectionStatus.value = "✓ Сервер доступен"
+                    addLog("Тест успешен: 200 OK")
                 } else {
-                    val errorBody = response.errorBody()?.string()?.take(100) ?: "нет деталей"
-                    _connectionStatus.value = "✕ Ошибка HTTP ${response.code()}: $errorBody"
-                    addLog("Тест провален: HTTP ${response.code()} - $errorBody")
+                    _connectionStatus.value = "✕ Ошибка HTTP ${response.code()}"
+                    addLog("Тест провален: HTTP ${response.code()}")
                 }
             } catch (e: Exception) {
-                _connectionStatus.value = "✕ Ошибка сети: ${e.localizedMessage}"
-                addLog("Тест провален (Исключение): ${e.localizedMessage}")
+                _connectionStatus.value = "✕ Ошибка сети"
+                addLog("Тест провален: ${e.localizedMessage}")
             }
         }
     }
