@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "me_dial_tube"
+rootProject.name = "MeTube Pocket"
 include(":app")
