@@ -127,12 +127,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _isLoading.value = true
             try {
                 val api = NetworkClient.createApi(serverUrl.value)
+                
+                // Умная маппинг параметров для обхода 403 ошибки
+                val finalQuality = when {
+                    downloadType.value == "audio" -> "audio" // MeTube понимает аудио через quality
+                    quality.value == "best" -> null          // null значит не отправлять, сервер применит свой дефолт
+                    else -> quality.value
+                }
+                
+                val finalFormat = if (format.value == "any") null else format.value
+
                 val response = api.addDownload(
                     AddRequest(
                         url = sharedUrl.value,
-                        quality = quality.value,
-                        format = format.value,
-                        downloadType = downloadType.value
+                        quality = finalQuality,
+                        format = finalFormat
                     )
                 )
                 _isLoading.value = false
