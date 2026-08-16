@@ -5,9 +5,9 @@ import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.medialtube.app.data.SettingsRepository
-import com.medialtube.app.data.api.ActionRequest
 import com.medialtube.app.data.api.AddRequest
 import com.medialtube.app.data.api.DownloadItem
+import com.medialtube.app.data.api.IdsRequest
 import com.medialtube.app.data.api.NetworkClient
 import com.medialtube.app.ui.theme.AppThemeStyle
 import kotlinx.coroutines.Job
@@ -51,7 +51,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            repository.serverUrl.collect { url -> serverUrl.value = url }
+            repository.serverUrl.collect { url -> 
+                serverUrl.value = url
+                // Запускаем опрос сервера сразу после чтения сохранённого URL
+                startPolling()
+            }
         }
         viewModelScope.launch {
             repository.selectedTheme.collect { themeStr ->
@@ -101,7 +105,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         pollingJob = null
     }
 
-    private suspend fun fetchHistory() {
+    suspend fun fetchHistory() {
         try {
             val api = NetworkClient.createApi(serverUrl.value)
             val response = api.getHistory()
@@ -146,20 +150,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // --- Новые команды для меню ---
+    // --- Методы управления процессами ---
+
     fun cancelDownload(id: String) {
         viewModelScope.launch {
             try {
-                NetworkClient.createApi(serverUrl.value).cancelDownload(ActionRequest(id))
-                fetchHistory() // Сразу обновляем список
+                NetworkClient.createApi(serverUrl.value).deleteDownloads(IdsRequest(listOf(id)))
+                fetchHistory()
             } catch (_: Exception) {}
         }
     }
 
-    fun clearDownload(id: String) {
+    fun retryDownload(id: String) {
         viewModelScope.launch {
             try {
-                NetworkClient.createApi(serverUrl.value).clearDownload(ActionRequest(id))
+                NetworkClient.createApi(serverUrl.value).retryDownloads(IdsRequest(listOf(id)))
+                fetchHistory()
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun deleteFromHistory(id: String) {
+        viewModelScope.launch {
+            try {
+                NetworkClient.createApi(serverUrl.value).deleteDownloads(IdsRequest(listOf(id)))
+                fetchHistory()
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun deleteWithFile(id: String) {
+        viewModelScope.launch {
+            try {
+                NetworkClient.createApi(serverUrl.value).deleteFiles(IdsRequest(listOf(id)))
                 fetchHistory()
             } catch (_: Exception) {}
         }
