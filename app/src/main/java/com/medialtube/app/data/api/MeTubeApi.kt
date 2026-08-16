@@ -30,8 +30,7 @@ data class DownloadItem(
     @SerializedName("id") val id: String? = null,
     @SerializedName("title") val title: String? = null,
     @SerializedName("url") val url: String? = null,
-    @SerializedName("status") val status: String? = null,
-    // ИСПРАВЛЕНО: MeTube использует 'percent' вместо 'progress'
+    @SerializedName("status") val status: String? = null, // downloading, finished, error, pending
     @SerializedName("percent") val percent: Double? = 0.0, 
     @SerializedName("speed") val speed: Double? = 0.0, 
     @SerializedName("error") val error: String? = null,
@@ -39,9 +38,9 @@ data class DownloadItem(
     @SerializedName("quality") val quality: String? = null
 )
 
-// Запрос для управления загрузками (Отменить/Удалить)
-data class ActionRequest(
-    @SerializedName("id") val id: String
+// MeTube принимает массив идентификаторов ("ids")
+data class IdsRequest(
+    @SerializedName("ids") val ids: List<String>
 )
 
 interface MeTubeApi {
@@ -51,12 +50,15 @@ interface MeTubeApi {
     @GET("history")
     suspend fun getHistory(): Response<HistoryResponse>
 
-    // Новые методы для взаимодействия с загрузками из всплывающего меню
-    @POST("cancel")
-    suspend fun cancelDownload(@Body request: ActionRequest): Response<AddResponse>
+    // Корректные эндпоинты API MeTube
+    @POST("delete")
+    suspend fun deleteDownloads(@Body request: IdsRequest): Response<AddResponse>
 
-    @POST("clear")
-    suspend fun clearDownload(@Body request: ActionRequest): Response<AddResponse>
+    @POST("delete_file")
+    suspend fun deleteFiles(@Body request: IdsRequest): Response<AddResponse>
+
+    @POST("retry")
+    suspend fun retryDownloads(@Body request: IdsRequest): Response<AddResponse>
 }
 
 object NetworkClient {
