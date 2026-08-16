@@ -10,8 +10,6 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import java.util.concurrent.TimeUnit
 
-// --- Модели данных (Запросы и Ответы) ---
-
 data class AddRequest(
     @SerializedName("url") val url: String,
     @SerializedName("quality") val quality: String = "best",
@@ -23,7 +21,6 @@ data class AddResponse(
 )
 
 data class HistoryResponse(
-    // В MeTube история часто возвращается как словари, где ключ - это ID загрузки
     @SerializedName("queue") val queue: Map<String, DownloadItem>? = emptyMap(),
     @SerializedName("done") val done: Map<String, DownloadItem>? = emptyMap()
 )
@@ -38,22 +35,17 @@ data class DownloadItem(
     @SerializedName("error") val error: String?
 )
 
-// --- Интерфейс API (Retrofit) ---
-
 interface MeTubeApi {
     @POST("add")
     suspend fun addDownload(@Body request: AddRequest): Response<AddResponse>
 
-    // Стандартный эндпоинт для polling-истории в MeTube
-    @GET("api/v1/history")
+    // Исправлено: MeTube принимает запросы по адресу /history
+    @GET("history")
     suspend fun getHistory(): Response<HistoryResponse>
 }
 
-// --- Фабрика создания клиента ---
-
 object NetworkClient {
     fun createApi(baseUrl: String): MeTubeApi {
-        // Убеждаемся, что адрес заканчивается на слеш, иначе Retrofit выдаст ошибку
         val safeUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
         
         val okHttpClient = OkHttpClient.Builder()
