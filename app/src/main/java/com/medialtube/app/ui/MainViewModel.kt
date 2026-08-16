@@ -25,18 +25,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = SettingsRepository(application)
 
-    // Текущий экран
     private val _currentScreen = MutableStateFlow(Screen.DOWNLOADS)
     val currentScreen: StateFlow<Screen> = _currentScreen.asStateFlow()
 
-    // Данные для "Нового видео"
+    // Настройки загрузки
     val sharedUrl = MutableStateFlow("")
-    val downloadType = MutableStateFlow("Video")
+    val downloadType = MutableStateFlow("video") // video, audio, thumbnail
     val quality = MutableStateFlow("best")
     val format = MutableStateFlow("any")
     val codec = MutableStateFlow("auto")
 
-    // Состояние сервера и загрузок
     val serverUrl = MutableStateFlow("http://192.168.1.100:8081")
     val selectedTheme = MutableStateFlow(AppThemeStyle.SYSTEM)
 
@@ -53,9 +51,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            repository.serverUrl.collect { url ->
-                serverUrl.value = url
-            }
+            repository.serverUrl.collect { url -> serverUrl.value = url }
         }
         viewModelScope.launch {
             repository.selectedTheme.collect { themeStr ->
@@ -70,7 +66,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Обработка Share Intent (перехват ссылки из YouTube)
     fun handleShareIntent(intent: Intent?) {
         if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
             val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return
@@ -96,7 +91,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Polling каждые 3 секунды
     fun startPolling() {
         stopPolling()
         pollingJob = viewModelScope.launch {
@@ -121,14 +115,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val list = mutableListOf<DownloadItem>()
                 body?.queue?.values?.let { list.addAll(it) }
                 body?.done?.values?.let { list.addAll(it) }
-                _downloads.value = list
+                body?.history?.values?.let { list.addAll(it) }
+                _downloads.value = list.distinctBy { it.id ?: it.title ?: it.url }
             }
         } catch (_: Exception) {
-            // Ошибки соединения во время polling игнорируем, чтобы не спамить UI
+            // Игнорируем фоновые ошибки сети при polling
         }
     }
 
-    // Отправка задания на скачивание
     fun submitDownload(onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -138,7 +132,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     AddRequest(
                         url = sharedUrl.value,
                         quality = quality.value,
-                        format = format.value
+                        format = format.value,
+                        downloadType = downloadType.value
                     )
                 )
                 _isLoading.value = false
@@ -156,7 +151,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Проверка соединения в настройках
     fun testConnection() {
         viewModelScope.launch {
             val targetUrl = if (serverUrl.value.endsWith("/")) serverUrl.value else "${serverUrl.value}/"
