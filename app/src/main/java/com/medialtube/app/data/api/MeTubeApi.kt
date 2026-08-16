@@ -1,5 +1,6 @@
 package com.medialtube.app.data.api
 
+import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
 import okhttp3.OkHttpClient
 import retrofit2.Response
@@ -20,17 +21,11 @@ data class AddResponse(
     @SerializedName("status") val status: String?
 )
 
-data class HistoryResponse(
-    @SerializedName("queue") val queue: List<DownloadItem>? = emptyList(),
-    @SerializedName("done") val done: List<DownloadItem>? = emptyList(),
-    @SerializedName("history") val history: List<DownloadItem>? = emptyList()
-)
-
 data class DownloadItem(
     @SerializedName("id") val id: String? = null,
     @SerializedName("title") val title: String? = null,
     @SerializedName("url") val url: String? = null,
-    @SerializedName("status") val status: String? = null, // downloading, finished, error, pending
+    @SerializedName("status") val status: String? = null,
     @SerializedName("percent") val percent: Double? = 0.0, 
     @SerializedName("speed") val speed: Double? = 0.0, 
     @SerializedName("error") val error: String? = null,
@@ -38,7 +33,6 @@ data class DownloadItem(
     @SerializedName("quality") val quality: String? = null
 )
 
-// MeTube принимает массив идентификаторов ("ids")
 data class IdsRequest(
     @SerializedName("ids") val ids: List<String>
 )
@@ -47,17 +41,16 @@ interface MeTubeApi {
     @POST("add")
     suspend fun addDownload(@Body request: AddRequest): Response<AddResponse>
 
+    // Возвращаем сырой JsonObject для ручного вытаскивания UUID
     @GET("history")
-    suspend fun getHistory(): Response<HistoryResponse>
+    suspend fun getHistory(): Response<JsonObject>
 
-    // Корректные эндпоинты API MeTube
+    // Единственный верный метод удаления в MeTube
     @POST("delete")
     suspend fun deleteDownloads(@Body request: IdsRequest): Response<AddResponse>
 
-    @POST("delete_file")
-    suspend fun deleteFiles(@Body request: IdsRequest): Response<AddResponse>
-
-    @POST("retry")
+    // Метод для повторного запуска
+    @POST("start")
     suspend fun retryDownloads(@Body request: IdsRequest): Response<AddResponse>
 }
 
