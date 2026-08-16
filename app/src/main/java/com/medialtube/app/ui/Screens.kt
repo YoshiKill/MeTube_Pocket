@@ -273,54 +273,27 @@ fun DownloadItemRow(item: DownloadItem, viewModel: MainViewModel) {
             }
         }
 
-        // Переработанное меню со всеми опциями
+        // Обновлённое меню, которое корректно отправляет UUID задачи
         DropdownMenu(
             expanded = menuExpanded,
             onDismissRequest = { menuExpanded = false }
         ) {
-            when (item.status) {
-                "downloading", "pending" -> {
-                    DropdownMenuItem(
-                        text = { Text("Отменить загрузку") },
-                        onClick = {
-                            item.id?.let { viewModel.cancelDownload(it) }
-                            menuExpanded = false
-                        }
-                    )
-                }
-                "error" -> {
-                    DropdownMenuItem(
-                        text = { Text("Повторить загрузку (Retry)") },
-                        onClick = {
-                            item.id?.let { viewModel.retryDownload(it) }
-                            menuExpanded = false
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Очистить ошибку из списка") },
-                        onClick = {
-                            item.id?.let { viewModel.deleteFromHistory(it) }
-                            menuExpanded = false
-                        }
-                    )
-                }
-                else -> { // Все завершенные файлы
-                    DropdownMenuItem(
-                        text = { Text("Удалить из списка (оставить файл)") },
-                        onClick = {
-                            item.id?.let { viewModel.deleteFromHistory(it) }
-                            menuExpanded = false
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Удалить из списка И удалить файл") },
-                        onClick = {
-                            item.id?.let { viewModel.deleteWithFile(it) }
-                            menuExpanded = false
-                        }
-                    )
-                }
+            if (item.status == "error") {
+                DropdownMenuItem(
+                    text = { Text("Повторить загрузку (Retry)") },
+                    onClick = {
+                        item.id?.let { viewModel.retryAction(it) }
+                        menuExpanded = false
+                    }
+                )
             }
+            DropdownMenuItem(
+                text = { Text("Удалить (Отменить)") },
+                onClick = {
+                    item.id?.let { viewModel.deleteAction(it) }
+                    menuExpanded = false
+                }
+            )
         }
     }
 }
@@ -412,7 +385,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
             OutlinedTextField(
                 value = serverUrl,
                 onValueChange = { viewModel.saveServerUrl(it) },
-                label = { Text("IP сервера MeTube (с http://)") },
+                label = { Text("IP сервера (с http://)") },
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -437,7 +410,6 @@ fun SettingsScreen(viewModel: MainViewModel) {
             Spacer(modifier = Modifier.height(24.dp))
             Divider()
             
-            // Лог-меню (Спойлер)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
