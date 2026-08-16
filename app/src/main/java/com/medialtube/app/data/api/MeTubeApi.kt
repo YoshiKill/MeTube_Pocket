@@ -10,36 +10,41 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import java.util.concurrent.TimeUnit
 
+// --- Расширенные параметры запроса на добавление ---
 data class AddRequest(
     @SerializedName("url") val url: String,
     @SerializedName("quality") val quality: String = "best",
-    @SerializedName("format") val format: String = "any"
+    @SerializedName("format") val format: String = "any",
+    @SerializedName("download_type") val downloadType: String = "video"
 )
 
 data class AddResponse(
     @SerializedName("status") val status: String?
 )
 
+// --- Универсальная модель истории ответа MeTube ---
 data class HistoryResponse(
     @SerializedName("queue") val queue: Map<String, DownloadItem>? = emptyMap(),
-    @SerializedName("done") val done: Map<String, DownloadItem>? = emptyMap()
+    @SerializedName("done") val done: Map<String, DownloadItem>? = emptyMap(),
+    @SerializedName("history") val history: Map<String, DownloadItem>? = emptyMap()
 )
 
 data class DownloadItem(
-    @SerializedName("id") val id: String?,
-    @SerializedName("title") val title: String?,
-    @SerializedName("url") val url: String?,
-    @SerializedName("status") val status: String?,
-    @SerializedName("progress") val progress: Double?, 
-    @SerializedName("speed") val speed: Double?, 
-    @SerializedName("error") val error: String?
+    @SerializedName("id") val id: String? = null,
+    @SerializedName("title") val title: String? = null,
+    @SerializedName("url") val url: String? = null,
+    @SerializedName("status") val status: String? = null, // downloading, finished, error, pending, done
+    @SerializedName("progress") val progress: Double? = 0.0, 
+    @SerializedName("speed") val speed: Double? = 0.0, 
+    @SerializedName("error") val error: String? = null,
+    @SerializedName("format") val format: String? = null,
+    @SerializedName("quality") val quality: String? = null
 )
 
 interface MeTubeApi {
     @POST("add")
     suspend fun addDownload(@Body request: AddRequest): Response<AddResponse>
 
-    // Исправлено: стучимся напрямую в /history вместо /api/v1/history
     @GET("history")
     suspend fun getHistory(): Response<HistoryResponse>
 }
