@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.medialtube.app.data.api.DownloadItem
@@ -27,7 +28,6 @@ fun MainScreen(viewModel: MainViewModel) {
     val currentScreen by viewModel.currentScreen.collectAsState()
     val extColors = LocalExtendedColors.current
 
-    // Ретро-фон (Рабочий стол 98 или Безмятежность XP)
     val backgroundModifier = when (extColors.retroType) {
         AppThemeStyle.RETRO_XP -> Modifier.background(
             brush = Brush.verticalGradient(
@@ -62,7 +62,6 @@ fun MainScreen(viewModel: MainViewModel) {
 fun AppBottomNavigation(currentScreen: Screen, onNavigate: (Screen) -> Unit) {
     val extColors = LocalExtendedColors.current
     if (extColors.retroType == AppThemeStyle.RETRO_XP) {
-        // Панель задач Windows XP
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -74,7 +73,6 @@ fun AppBottomNavigation(currentScreen: Screen, onNavigate: (Screen) -> Unit) {
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Кнопка Пуск
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
@@ -94,7 +92,6 @@ fun AppBottomNavigation(currentScreen: Screen, onNavigate: (Screen) -> Unit) {
             XpTaskbarButton("New", currentScreen == Screen.NEW_VIDEO) { onNavigate(Screen.NEW_VIDEO) }
         }
     } else {
-        // Стандартная или Win98 панель
         NavigationBar(
             containerColor = if (extColors.isRetro) extColors.cardBackground else MaterialTheme.colorScheme.surface
         ) {
@@ -151,7 +148,6 @@ fun RetroWindow(title: String, content: @Composable () -> Unit) {
                 .background(extColors.cardBackground)
                 .padding(2.dp)
         ) {
-            // Заголовок окна
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -171,13 +167,11 @@ fun RetroWindow(title: String, content: @Composable () -> Unit) {
                     RetroWindowButton("✕")
                 }
             }
-            // Содержимое
             Box(modifier = Modifier.padding(12.dp)) {
                 content()
             }
         }
     } else {
-        // Современный стиль
         Card(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -217,7 +211,7 @@ fun DownloadsScreen(viewModel: MainViewModel) {
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(downloads) { item ->
-                    DownloadItemRow(item)
+                    DownloadItemRow(item, viewModel)
                     Divider()
                 }
             }
@@ -225,14 +219,76 @@ fun DownloadsScreen(viewModel: MainViewModel) {
     }
 }
 
+// Форматирование скорости из байт/с в читаемый вид
+fun formatSpeed(speed: Double?): String {
+    val bytes = speed ?: 0.0
+    if (bytes <= 0.0) return ""
+    val kb = bytes / 1024
+    if (kb < 1024) return "${"%.1f".format(kb)} KB/s"
+    val mb = kb / 1024
+    return "${"%.1f".format(mb)} MB/s"
+}
+
 @Composable
-fun DownloadItemRow(item: DownloadItem) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Text(text = item.title ?: item.url ?: "Неизвестно", fontWeight = FontWeight.Bold, maxLines = 1)
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = "Статус: ${item.status ?: "pending"}", fontSize = 12.sp)
-            if (item.status == "downloading" && item.progress != null) {
-                Text(text = "${item.progress}%", fontSize = 12.sp)
+fun DownloadItemRow(item: DownloadItem, viewModel: MainViewModel) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier
+        .fillMaxWidth()
+        .clickable { menuExpanded = true }
+        .padding(vertical = 8.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = item.title ?: item.url ?: "Неизвестно", 
+                fontWeight = FontWeight.Bold, 
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(text = "Статус: ${item.status ?: "pending"}", fontSize = 12.sp)
+                if (item.status == "downloading") {
+                    Text(text = formatSpeed(item.speed), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+
+            // Отрисовка прогресс-бара
+            if (item.status == "downloading" && item.percent != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    LinearProgressIndicator(
+                        progress = (item.percent / 100).toFloat().coerceIn(0f, 1f),
+                        modifier = Modifier.weight(1f).height(6.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "${"%.1f".format(item.percent)}%", fontSize = 12.sp)
+                }
+            }
+        }
+
+        // Всплывающее меню действий
+        DropdownMenu(
+            expanded = menuExpanded,
+            onDismissRequest = { menuExpanded = false }
+        ) {
+            if (item.status == "downloading" || item.status == "pending") {
+                DropdownMenuItem(
+                    text = { Text("Отменить загрузку") },
+                    onClick = {
+                        item.id?.let { viewModel.cancelDownload(it) }
+                        menuExpanded = false
+                    }
+                )
+            } else {
+                DropdownMenuItem(
+                    text = { Text("Удалить из списка") },
+                    onClick = {
+                        item.id?.let { viewModel.clearDownload(it) }
+                        menuExpanded = false
+                    }
+                )
             }
         }
     }
