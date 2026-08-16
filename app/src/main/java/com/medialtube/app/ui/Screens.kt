@@ -14,6 +14,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -270,7 +273,7 @@ fun DownloadItemRow(item: DownloadItem, viewModel: MainViewModel) {
             }
         }
 
-        // Всплывающее контекстное меню с опциями
+        // Переработанное меню со всеми опциями
         DropdownMenu(
             expanded = menuExpanded,
             onDismissRequest = { menuExpanded = false }
@@ -294,23 +297,23 @@ fun DownloadItemRow(item: DownloadItem, viewModel: MainViewModel) {
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Удалить из списка") },
+                        text = { Text("Очистить ошибку из списка") },
                         onClick = {
                             item.id?.let { viewModel.deleteFromHistory(it) }
                             menuExpanded = false
                         }
                     )
                 }
-                else -> { // finished / done
+                else -> { // Все завершенные файлы
                     DropdownMenuItem(
-                        text = { Text("Удалить из списка") },
+                        text = { Text("Удалить из списка (оставить файл)") },
                         onClick = {
                             item.id?.let { viewModel.deleteFromHistory(it) }
                             menuExpanded = false
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Удалить вместе с файлом") },
+                        text = { Text("Удалить из списка И удалить файл") },
                         onClick = {
                             item.id?.let { viewModel.deleteWithFile(it) }
                             menuExpanded = false
@@ -399,6 +402,10 @@ fun SettingsScreen(viewModel: MainViewModel) {
     val serverUrl by viewModel.serverUrl.collectAsState()
     val status by viewModel.connectionStatus.collectAsState()
     val selectedTheme by viewModel.selectedTheme.collectAsState()
+    val logs by viewModel.logs.collectAsState()
+
+    var showLogs by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
 
     RetroWindow("Свойства: MeTube Pocket") {
         Column {
@@ -424,6 +431,45 @@ fun SettingsScreen(viewModel: MainViewModel) {
                         onClick = { viewModel.saveTheme(theme) }
                     )
                     Text(theme.name)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Divider()
+            
+            // Лог-меню (Спойлер)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showLogs = !showLogs }
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Журнал событий (Логи)", fontWeight = FontWeight.Bold)
+                Text(if (showLogs) "▲ Скрыть" else "▼ Показать", fontSize = 12.sp)
+            }
+
+            if (showLogs) {
+                Button(
+                    onClick = { clipboardManager.setText(AnnotatedString(logs.joinToString("\n"))) },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Text("Копировать весь лог")
+                }
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .background(Color.Black)
+                        .padding(8.dp)
+                ) {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        items(logs) { log ->
+                            Text(log, color = Color.Green, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    }
                 }
             }
         }
