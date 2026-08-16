@@ -10,18 +10,17 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import java.util.concurrent.TimeUnit
 
+// Исправлено: параметры могут быть null, лишний download_type удален
 data class AddRequest(
     @SerializedName("url") val url: String,
-    @SerializedName("quality") val quality: String = "best",
-    @SerializedName("format") val format: String = "any",
-    @SerializedName("download_type") val downloadType: String = "video"
+    @SerializedName("quality") val quality: String? = null,
+    @SerializedName("format") val format: String? = null
 )
 
 data class AddResponse(
     @SerializedName("status") val status: String?
 )
 
-// Исправлено: теперь ожидаем массивы (List), а не словари (Map)
 data class HistoryResponse(
     @SerializedName("queue") val queue: List<DownloadItem>? = emptyList(),
     @SerializedName("done") val done: List<DownloadItem>? = emptyList(),
