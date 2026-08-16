@@ -10,7 +10,6 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import java.util.concurrent.TimeUnit
 
-// Исправлено: параметры могут быть null, лишний download_type удален
 data class AddRequest(
     @SerializedName("url") val url: String,
     @SerializedName("quality") val quality: String? = null,
@@ -32,11 +31,17 @@ data class DownloadItem(
     @SerializedName("title") val title: String? = null,
     @SerializedName("url") val url: String? = null,
     @SerializedName("status") val status: String? = null,
-    @SerializedName("progress") val progress: Double? = 0.0, 
+    // ИСПРАВЛЕНО: MeTube использует 'percent' вместо 'progress'
+    @SerializedName("percent") val percent: Double? = 0.0, 
     @SerializedName("speed") val speed: Double? = 0.0, 
     @SerializedName("error") val error: String? = null,
     @SerializedName("format") val format: String? = null,
     @SerializedName("quality") val quality: String? = null
+)
+
+// Запрос для управления загрузками (Отменить/Удалить)
+data class ActionRequest(
+    @SerializedName("id") val id: String
 )
 
 interface MeTubeApi {
@@ -45,6 +50,13 @@ interface MeTubeApi {
 
     @GET("history")
     suspend fun getHistory(): Response<HistoryResponse>
+
+    // Новые методы для взаимодействия с загрузками из всплывающего меню
+    @POST("cancel")
+    suspend fun cancelDownload(@Body request: ActionRequest): Response<AddResponse>
+
+    @POST("clear")
+    suspend fun clearDownload(@Body request: ActionRequest): Response<AddResponse>
 }
 
 object NetworkClient {
