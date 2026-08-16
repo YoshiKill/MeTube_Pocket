@@ -10,7 +10,6 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import java.util.concurrent.TimeUnit
 
-// --- Расширенные параметры запроса на добавление ---
 data class AddRequest(
     @SerializedName("url") val url: String,
     @SerializedName("quality") val quality: String = "best",
@@ -22,18 +21,18 @@ data class AddResponse(
     @SerializedName("status") val status: String?
 )
 
-// --- Универсальная модель истории ответа MeTube ---
+// Исправлено: теперь ожидаем массивы (List), а не словари (Map)
 data class HistoryResponse(
-    @SerializedName("queue") val queue: Map<String, DownloadItem>? = emptyMap(),
-    @SerializedName("done") val done: Map<String, DownloadItem>? = emptyMap(),
-    @SerializedName("history") val history: Map<String, DownloadItem>? = emptyMap()
+    @SerializedName("queue") val queue: List<DownloadItem>? = emptyList(),
+    @SerializedName("done") val done: List<DownloadItem>? = emptyList(),
+    @SerializedName("history") val history: List<DownloadItem>? = emptyList()
 )
 
 data class DownloadItem(
     @SerializedName("id") val id: String? = null,
     @SerializedName("title") val title: String? = null,
     @SerializedName("url") val url: String? = null,
-    @SerializedName("status") val status: String? = null, // downloading, finished, error, pending, done
+    @SerializedName("status") val status: String? = null,
     @SerializedName("progress") val progress: Double? = 0.0, 
     @SerializedName("speed") val speed: Double? = 0.0, 
     @SerializedName("error") val error: String? = null,
