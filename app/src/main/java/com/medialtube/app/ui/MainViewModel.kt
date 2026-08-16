@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.medialtube.app.data.SettingsRepository
+import com.medialtube.app.data.api.ActionRequest
 import com.medialtube.app.data.api.AddRequest
 import com.medialtube.app.data.api.DownloadItem
 import com.medialtube.app.data.api.NetworkClient
@@ -68,17 +69,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun handleShareIntent(intent: Intent?) {
         if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
             val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return
-            val extractedUrl = extractUrl(text)
+            val extractedUrl = Regex("""https?://[^\s]+""").find(text)?.value ?: text.trim()
             if (extractedUrl.isNotEmpty()) {
                 sharedUrl.value = extractedUrl
                 _currentScreen.value = Screen.NEW_VIDEO
             }
         }
-    }
-
-    private fun extractUrl(text: String): String {
-        val regex = Regex("""https?://[^\s]+""")
-        return regex.find(text)?.value ?: text.trim()
     }
 
     fun navigateTo(screen: Screen) {
@@ -112,14 +108,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (response.isSuccessful) {
                 val body = response.body()
                 val list = mutableListOf<DownloadItem>()
-                // Исправлено: теперь берем списки напрямую, без .values
                 body?.queue?.let { list.addAll(it) }
                 body?.done?.let { list.addAll(it) }
                 body?.history?.let { list.addAll(it) }
                 _downloads.value = list.distinctBy { it.id ?: it.title ?: it.url }
             }
-        } catch (_: Exception) {
-        }
+        } catch (_: Exception) {}
     }
 
     fun submitDownload(onSuccess: () -> Unit, onError: (String) -> Unit) {
@@ -127,22 +121,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _isLoading.value = true
             try {
                 val api = NetworkClient.createApi(serverUrl.value)
-                
-                // Умная маппинг параметров для обхода 403 ошибки
                 val finalQuality = when {
-                    downloadType.value == "audio" -> "audio" // MeTube понимает аудио через quality
-                    quality.value == "best" -> null          // null значит не отправлять, сервер применит свой дефолт
+                    downloadType.value == "audio" -> "audio"
+                    quality.value == "best" -> null
                     else -> quality.value
                 }
-                
                 val finalFormat = if (format.value == "any") null else format.value
 
                 val response = api.addDownload(
-                    AddRequest(
-                        url = sharedUrl.value,
-                        quality = finalQuality,
-                        format = finalFormat
-                    )
+                    AddRequest(url = sharedUrl.value, quality = finalQuality, format = finalFormat)
                 )
                 _isLoading.value = false
                 if (response.isSuccessful) {
@@ -156,6 +143,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _isLoading.value = false
                 onError("Сервер MeTube недоступен")
             }
+        }
+    }
+
+    // --- Новые команды для меню ---
+    fun cancelDownload(id: String) {
+        viewModelScope.launch {
+            try {
+                NetworkClient.createApi(serverUrl.value).cancelDownload(ActionRequest(id))
+                fetchHistory() // Сразу обновляем список
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun clearDownload(id: String) {
+        viewModelScope.launch {
+            try {
+                NetworkClient.createApi(serverUrl.value).clearDownload(ActionRequest(id))
+                fetchHistory()
+            } catch (_: Exception) {}
         }
     }
 
