@@ -28,9 +28,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentScreen = MutableStateFlow(Screen.DOWNLOADS)
     val currentScreen: StateFlow<Screen> = _currentScreen.asStateFlow()
 
-    // Настройки загрузки
     val sharedUrl = MutableStateFlow("")
-    val downloadType = MutableStateFlow("video") // video, audio, thumbnail
+    val downloadType = MutableStateFlow("video")
     val quality = MutableStateFlow("best")
     val format = MutableStateFlow("any")
     val codec = MutableStateFlow("auto")
@@ -113,13 +112,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (response.isSuccessful) {
                 val body = response.body()
                 val list = mutableListOf<DownloadItem>()
-                body?.queue?.values?.let { list.addAll(it) }
-                body?.done?.values?.let { list.addAll(it) }
-                body?.history?.values?.let { list.addAll(it) }
+                // Исправлено: теперь берем списки напрямую, без .values
+                body?.queue?.let { list.addAll(it) }
+                body?.done?.let { list.addAll(it) }
+                body?.history?.let { list.addAll(it) }
                 _downloads.value = list.distinctBy { it.id ?: it.title ?: it.url }
             }
         } catch (_: Exception) {
-            // Игнорируем фоновые ошибки сети при polling
         }
     }
 
