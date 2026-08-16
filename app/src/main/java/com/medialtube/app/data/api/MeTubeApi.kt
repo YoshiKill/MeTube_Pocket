@@ -39,7 +39,7 @@ interface MeTubeApi {
     @POST("add")
     suspend fun addDownload(@Body request: AddRequest): Response<AddResponse>
 
-    // Исправлено: MeTube принимает запросы по адресу /history
+    // Исправлено: стучимся напрямую в /history вместо /api/v1/history
     @GET("history")
     suspend fun getHistory(): Response<HistoryResponse>
 }
