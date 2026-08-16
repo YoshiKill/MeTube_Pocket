@@ -1,21 +1,19 @@
 package com.medialtube.app.ui
 
-import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -24,69 +22,32 @@ import com.medialtube.app.ui.theme.AppThemeStyle
 import com.medialtube.app.ui.theme.LocalExtendedColors
 import com.medialtube.app.ui.theme.retro3DBorder
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(viewModel: MainViewModel) {
     val currentScreen by viewModel.currentScreen.collectAsState()
-    val context = LocalContext.current
-    val extendedColors = LocalExtendedColors.current
+    val extColors = LocalExtendedColors.current
+
+    // Ретро-фон (Рабочий стол 98 или Безмятежность XP)
+    val backgroundModifier = when (extColors.retroType) {
+        AppThemeStyle.RETRO_XP -> Modifier.background(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color(0xFF2B78E4), Color(0xFF87CEEB), Color(0xFF68A34D), Color(0xFF458B00)),
+                startY = 0f,
+                endY = Float.POSITIVE_INFINITY
+            )
+        )
+        AppThemeStyle.RETRO_98 -> Modifier.background(extColors.desktopBackground)
+        else -> Modifier.background(MaterialTheme.colorScheme.background)
+    }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { 
-                    Text(
-                        text = "me_dial_tube", 
-                        fontWeight = FontWeight.Bold,
-                        color = if (extendedColors.isRetro) extendedColors.windowHeaderFg else MaterialTheme.colorScheme.onPrimary
-                    ) 
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = if (extendedColors.isRetro) extendedColors.windowHeaderBg else MaterialTheme.colorScheme.primary
-                )
-            )
-        },
-        bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface
-            ) {
-                NavigationBarItem(
-                    selected = currentScreen == Screen.DOWNLOADS,
-                    onClick = { viewModel.navigateTo(Screen.DOWNLOADS) },
-                    icon = { Icon(Icons.Default.List, contentDescription = "Загрузки") },
-                    label = { Text("Загрузки") }
-                )
-                NavigationBarItem(
-                    selected = currentScreen == Screen.SETTINGS,
-                    onClick = { viewModel.navigateTo(Screen.SETTINGS) },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = "Настройки") },
-                    label = { Text("Настройки") }
-                )
-            }
-        },
-        floatingActionButton = {
-            if (currentScreen == Screen.DOWNLOADS) {
-                FloatingActionButton(
-                    onClick = { viewModel.navigateTo(Screen.NEW_VIDEO) },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    modifier = if (extendedColors.isRetro) {
-                        Modifier.retro3DBorder(
-                            lightColor = extendedColors.borderLight,
-                            darkColor = extendedColors.borderDark
-                        )
-                    } else Modifier
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Добавить")
-                }
-            }
-        }
-    ) { paddingValues ->
+        bottomBar = { AppBottomNavigation(currentScreen, viewModel::navigateTo) }
+    ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .background(MaterialTheme.colorScheme.background)
+                .then(backgroundModifier)
+                .padding(innerPadding)
         ) {
             when (currentScreen) {
                 Screen.DOWNLOADS -> DownloadsScreen(viewModel)
@@ -97,42 +58,167 @@ fun MainScreen(viewModel: MainViewModel) {
     }
 }
 
-// --- ЭКРАН 1: ЗАГРУЗКИ ---
+@Composable
+fun AppBottomNavigation(currentScreen: Screen, onNavigate: (Screen) -> Unit) {
+    val extColors = LocalExtendedColors.current
+    if (extColors.retroType == AppThemeStyle.RETRO_XP) {
+        // Панель задач Windows XP
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color(0xFF1F42F4), Color(0xFF245EDC), Color(0xFF0F2695))
+                    )
+                ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Кнопка Пуск
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(Color(0xFF4CB151), Color(0xFF3C9E3F), Color(0xFF246125))
+                        )
+                    )
+                    .clickable { onNavigate(Screen.SETTINGS) }
+                    .padding(horizontal = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Start", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            XpTaskbarButton("Downloads", currentScreen == Screen.DOWNLOADS) { onNavigate(Screen.DOWNLOADS) }
+            XpTaskbarButton("New", currentScreen == Screen.NEW_VIDEO) { onNavigate(Screen.NEW_VIDEO) }
+        }
+    } else {
+        // Стандартная или Win98 панель
+        NavigationBar(
+            containerColor = if (extColors.isRetro) extColors.cardBackground else MaterialTheme.colorScheme.surface
+        ) {
+            NavigationBarItem(
+                icon = { Icon(Icons.Default.List, "Downloads") },
+                label = { Text("Загрузки") },
+                selected = currentScreen == Screen.DOWNLOADS,
+                onClick = { onNavigate(Screen.DOWNLOADS) }
+            )
+            NavigationBarItem(
+                icon = { Icon(Icons.Default.Add, "New") },
+                label = { Text("Новое") },
+                selected = currentScreen == Screen.NEW_VIDEO,
+                onClick = { onNavigate(Screen.NEW_VIDEO) }
+            )
+            NavigationBarItem(
+                icon = { Icon(Icons.Default.Settings, "Settings") },
+                label = { Text("Настройки") },
+                selected = currentScreen == Screen.SETTINGS,
+                onClick = { onNavigate(Screen.SETTINGS) }
+            )
+        }
+    }
+}
+
+@Composable
+fun XpTaskbarButton(text: String, selected: Boolean, onClick: () -> Unit) {
+    val bgColor = if (selected) Color(0xFF1941A5) else Color.Transparent
+    Box(
+        modifier = Modifier
+            .fillMaxHeight()
+            .clickable(onClick = onClick)
+            .background(bgColor)
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text, color = Color.White, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+    }
+}
+
+@Composable
+fun RetroWindow(title: String, content: @Composable () -> Unit) {
+    val extColors = LocalExtendedColors.current
+    if (extColors.isRetro) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .retro3DBorder(
+                    lightColor = extColors.borderLight,
+                    darkColor = extColors.borderDark,
+                    borderWidth = 2.dp
+                )
+                .background(extColors.cardBackground)
+                .padding(2.dp)
+        ) {
+            // Заголовок окна
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        if (extColors.retroType == AppThemeStyle.RETRO_XP)
+                            Brush.verticalGradient(listOf(Color(0xFF0058EE), Color(0xFF003DD5)))
+                        else Brush.horizontalGradient(listOf(Color(0xFF000080), Color(0xFF1084d0)))
+                    )
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Row {
+                    RetroWindowButton("_")
+                    RetroWindowButton("□")
+                    RetroWindowButton("✕")
+                }
+            }
+            // Содержимое
+            Box(modifier = Modifier.padding(12.dp)) {
+                content()
+            }
+        }
+    } else {
+        // Современный стиль
+        Card(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(16.dp))
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+fun RetroWindowButton(symbol: String) {
+    val extColors = LocalExtendedColors.current
+    Box(
+        modifier = Modifier
+            .padding(start = 2.dp)
+            .size(18.dp)
+            .retro3DBorder(
+                lightColor = extColors.borderLight,
+                darkColor = extColors.borderDark,
+                borderWidth = 1.dp
+            )
+            .background(extColors.cardBackground),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(symbol, fontSize = 10.sp, color = Color.Black, fontWeight = FontWeight.Bold)
+    }
+}
+
 @Composable
 fun DownloadsScreen(viewModel: MainViewModel) {
     val downloads by viewModel.downloads.collectAsState()
-    var selectedFilter by remember { mutableStateOf("Все") }
-
-    val filteredList = when (selectedFilter) {
-        "Активные" -> downloads.filter { it.status == "downloading" || it.status == "pending" }
-        "Завершённые" -> downloads.filter { it.status == "finished" || it.status == "done" }
-        "Ошибки" -> downloads.filter { it.status == "error" }
-        else -> downloads
-    }
-
-    Column(modifier = Modifier.fillMaxSize().padding(8.dp)) {
-        // Фильтры
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            listOf("Все", "Активные", "Завершённые", "Ошибки").forEach { filter ->
-                FilterChip(
-                    selected = selectedFilter == filter,
-                    onClick = { selectedFilter = filter },
-                    label = { Text(filter, fontSize = 12.sp) }
-                )
-            }
-        }
-
-        if (filteredList.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Список загрузок пуст", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
-            }
+    
+    RetroWindow("Загрузки MeTube") {
+        if (downloads.isEmpty()) {
+            Text("Список пуст", modifier = Modifier.padding(16.dp))
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(filteredList) { item ->
-                    DownloadCard(item)
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(downloads) { item ->
+                    DownloadItemRow(item)
+                    Divider()
                 }
             }
         }
@@ -140,182 +226,120 @@ fun DownloadsScreen(viewModel: MainViewModel) {
 }
 
 @Composable
-fun DownloadCard(item: DownloadItem) {
-    val extendedColors = LocalExtendedColors.current
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (extendedColors.isRetro) {
-                    Modifier.retro3DBorder(
-                        lightColor = extendedColors.borderLight,
-                        darkColor = extendedColors.borderDark
-                    )
-                } else Modifier
-            ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (extendedColors.isRetro) extendedColors.cardBackground else MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = item.title ?: item.url ?: "Без названия",
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-
-            val progress = (item.progress ?: 0.0) / 100.0
-            if (item.status == "downloading") {
-                LinearProgressIndicator(
-                    progress = { progress.toFloat() },
-                    modifier = Modifier.fillMaxWidth().height(8.dp)
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Скачивается ${(progress * 100).toInt()}%", fontSize = 12.sp)
-                    item.speed?.let {
-                        Text("${(it / 1024 / 1024).toInt()} MB/s", fontSize = 12.sp)
-                    }
-                }
-            } else if (item.status == "finished" || item.status == "done") {
-                Text("✓ Завершено", color = Color(0xFF2E7D32), fontWeight = FontWeight.Medium)
-            } else if (item.status == "error") {
-                Text("✕ Ошибка: ${item.error ?: "Неизвестная ошибка"}", color = MaterialTheme.colorScheme.error)
-            } else {
-                Text("В очереди...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+fun DownloadItemRow(item: DownloadItem) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Text(text = item.title ?: item.url ?: "Неизвестно", fontWeight = FontWeight.Bold, maxLines = 1)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(text = "Статус: ${item.status ?: "pending"}", fontSize = 12.sp)
+            if (item.status == "downloading" && item.progress != null) {
+                Text(text = "${item.progress}%", fontSize = 12.sp)
             }
         }
     }
 }
 
-// --- ЭКРАН 2: НОВОЕ ВИДЕО ---
 @Composable
 fun NewVideoScreen(viewModel: MainViewModel) {
-    val context = LocalContext.current
     val url by viewModel.sharedUrl.collectAsState()
     val type by viewModel.downloadType.collectAsState()
     val quality by viewModel.quality.collectAsState()
     val format by viewModel.format.collectAsState()
+    val codec by viewModel.codec.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text("Новое видео", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-
-        OutlinedTextField(
-            value = url,
-            onValueChange = { viewModel.sharedUrl.value = it },
-            label = { Text("URL видео") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Text("Тип загрузки", fontWeight = FontWeight.SemiBold)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Video", "Audio").forEach { item ->
-                ElevatedButton(
-                    onClick = { viewModel.downloadType.value = item },
-                    colors = ButtonDefaults.elevatedButtonColors(
-                        containerColor = if (type == item) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                        contentColor = if (type == item) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-                    )
-                ) {
-                    Text(item)
-                }
+    RetroWindow("Добавить загрузку") {
+        Column {
+            OutlinedTextField(
+                value = url,
+                onValueChange = { viewModel.sharedUrl.value = it },
+                label = { Text("URL видео") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            RetroDropdown("Тип", type, listOf("video", "audio", "thumbnail")) { viewModel.downloadType.value = it }
+            
+            if (type != "thumbnail") {
+                RetroDropdown("Качество", quality, listOf("best", "1080p", "720p", "480p", "worst")) { viewModel.quality.value = it }
+                
+                val formatOptions = if (type == "audio") listOf("any", "mp3", "m4a", "flac", "wav") else listOf("any", "mp4", "mkv", "webm")
+                RetroDropdown("Формат", format, formatOptions) { viewModel.format.value = it }
+                
+                val codecOptions = if (type == "audio") listOf("auto", "aac", "mp3", "opus") else listOf("auto", "h264", "h265", "vp9", "av1")
+                RetroDropdown("Кодек", codec, codecOptions) { viewModel.codec.value = it }
             }
-        }
 
-        Text("Качество", fontWeight = FontWeight.SemiBold)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("best", "1080p", "720p", "480p", "worst").forEach { q ->
-                FilterChip(
-                    selected = quality == q,
-                    onClick = { viewModel.quality.value = q },
-                    label = { Text(q) }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        Button(
-            onClick = {
-                viewModel.submitDownload(
-                    onSuccess = { Toast.makeText(context, "Задание добавлено!", Toast.LENGTH_SHORT).show() },
-                    onError = { err -> Toast.makeText(context, err, Toast.LENGTH_LONG).show() }
-                )
-            },
-            enabled = !isLoading && url.isNotBlank(),
-            modifier = Modifier.fillMaxWidth().height(50.dp)
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
-            } else {
-                Text("Добавить загрузку")
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = { viewModel.submitDownload({}, {}) },
+                enabled = url.isNotBlank() && !isLoading,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (isLoading) "Отправка..." else "Скачать")
             }
         }
     }
 }
 
-// --- ЭКРАН 3: НАСТРОЙКИ ---
+@Composable
+fun RetroDropdown(label: String, selected: String, options: List<String>, onSelect: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(label, fontSize = 12.sp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, Color.Gray)
+                .background(MaterialTheme.colorScheme.surface)
+                .clickable { expanded = true }
+                .padding(12.dp)
+        ) {
+            Text(selected)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        onSelect(option)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun SettingsScreen(viewModel: MainViewModel) {
     val serverUrl by viewModel.serverUrl.collectAsState()
+    val status by viewModel.connectionStatus.collectAsState()
     val selectedTheme by viewModel.selectedTheme.collectAsState()
-    val connectionStatus by viewModel.connectionStatus.collectAsState()
-    var tempUrl by remember { mutableStateOf(serverUrl) }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text("Настройки", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-
-        Text("Сервер MeTube", fontWeight = FontWeight.SemiBold)
-        OutlinedTextField(
-            value = tempUrl,
-            onValueChange = { tempUrl = it },
-            label = { Text("Адрес сервера") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { viewModel.saveServerUrl(tempUrl) }) {
-                Text("Сохранить")
-            }
-            OutlinedButton(onClick = { viewModel.testConnection() }) {
+    RetroWindow("Свойства: MeTube Pocket") {
+        Column {
+            OutlinedTextField(
+                value = serverUrl,
+                onValueChange = { viewModel.saveServerUrl(it) },
+                label = { Text("IP сервера MeTube (с http://)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(onClick = { viewModel.testConnection() }, modifier = Modifier.fillMaxWidth()) {
                 Text("Проверить соединение")
             }
-        }
-
-        connectionStatus?.let {
-            Text(it, color = if (it.startsWith("✓")) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error)
-        }
-
-        Divider()
-
-        Text("Тема интерфейса", fontWeight = FontWeight.SemiBold)
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (status != null) {
+                Text(status!!, modifier = Modifier.padding(vertical = 8.dp), fontSize = 12.sp)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Тема оформления", fontWeight = FontWeight.Bold)
             AppThemeStyle.values().forEach { theme ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(
                         selected = selectedTheme == theme,
                         onClick = { viewModel.saveTheme(theme) }
                     )
-                    Text(
-                        text = when (theme) {
-                            AppThemeStyle.SYSTEM -> "Системная"
-                            AppThemeStyle.LIGHT -> "Светлая"
-                            AppThemeStyle.DARK -> "Тёмная"
-                            AppThemeStyle.RETRO_98 -> "Ретро98 (Windows 98)"
-                            AppThemeStyle.RETRO_XP -> "Ретро-XP (Windows XP)"
-                        }
-                    )
+                    Text(theme.name)
                 }
             }
         }
