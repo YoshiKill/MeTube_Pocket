@@ -7,9 +7,9 @@ import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.medialtube.app.data.SettingsRepository
+import com.medialtube.app.data.api.ActionRequest
 import com.medialtube.app.data.api.AddRequest
 import com.medialtube.app.data.api.DownloadItem
-import com.medialtube.app.data.api.IdsRequest
 import com.medialtube.app.data.api.NetworkClient
 import com.medialtube.app.ui.theme.AppThemeStyle
 import kotlinx.coroutines.Job
@@ -65,9 +65,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var isFirstLoad = true
 
     init {
-        addLog("Приложение запущено...")
+        addLog("Запуск MainViewModel...")
         viewModelScope.launch {
-            repository.serverUrl.collect { url -> 
+            repository.serverUrl.collect { url ->
                 serverUrl.value = url
                 if (isFirstLoad) {
                     isFirstLoad = false
@@ -126,15 +126,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val body = response.body()
                 val list = mutableListOf<DownloadItem>()
                 val gson = Gson()
-                
-                // Умный парсер, который достает UUID напрямую из ключей JSON-объекта
+
                 fun parseSection(element: JsonElement?) {
                     if (element == null) return
                     if (element.isJsonObject) {
                         element.asJsonObject.entrySet().forEach { entry ->
-                            val uuid = entry.key
                             val item = gson.fromJson(entry.value, DownloadItem::class.java)
-                            list.add(item.copy(id = uuid)) // Подменяем ID видео на системный UUID!
+                            list.add(item)
                         }
                     } else if (element.isJsonArray) {
                         element.asJsonArray.forEach { arrayElem ->
@@ -149,8 +147,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 parseSection(body?.get("queue"))
                 parseSection(body?.get("done"))
                 parseSection(body?.get("history"))
-                
-                _downloads.value = list.distinctBy { it.id ?: it.title ?: it.url }
+
+                // MeTube оперирует URL для идентификации, фильтруем по нему
+                _downloads.value = list.distinctBy { it.url ?: it.id }
             }
         } catch (e: Exception) {
             if (_downloads.value.isEmpty()) addLog("Сбой истории: ${e.message}")
@@ -186,28 +185,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun deleteAction(id: String) {
+    // ВАЖНО: MeTube использует поле URL для команд cancel и clear
+    fun cancelAction(url: String) {
         viewModelScope.launch {
-            addLog("-> Отправка команды DELETE для UUID: $id")
+            addLog("-> Отмена загрузки (cancel) для: $url")
             try {
-                val response = NetworkClient.createApi(serverUrl.value).deleteDownloads(IdsRequest(listOf(id)))
-                addLog("<- Ответ сервера: Код ${response.code()}")
+                val response = NetworkClient.createApi(serverUrl.value).cancelDownload(ActionRequest(url))
+                addLog("<- Ответ cancel: ${response.code()}")
                 fetchHistory()
             } catch (e: Exception) {
-                addLog("<- Ошибка удаления: ${e.message}")
+                addLog("<- Ошибка cancel: ${e.message}")
             }
         }
     }
 
-    fun retryAction(id: String) {
+    fun clearAction(url: String) {
         viewModelScope.launch {
-            addLog("-> Отправка команды START (retry) для UUID: $id")
+            addLog("-> Очистка истории (clear) для: $url")
             try {
-                val response = NetworkClient.createApi(serverUrl.value).retryDownloads(IdsRequest(listOf(id)))
-                addLog("<- Ответ сервера: Код ${response.code()}")
+                val response = NetworkClient.createApi(serverUrl.value).clearDownload(ActionRequest(url))
+                addLog("<- Ответ clear: ${response.code()}")
                 fetchHistory()
             } catch (e: Exception) {
-                addLog("<- Ошибка повтора: ${e.message}")
+                addLog("<- Ошибка clear: ${e.message}")
             }
         }
     }
