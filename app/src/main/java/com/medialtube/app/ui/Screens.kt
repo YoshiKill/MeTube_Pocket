@@ -273,27 +273,30 @@ fun DownloadItemRow(item: DownloadItem, viewModel: MainViewModel) {
             }
         }
 
-        // Обновлённое меню, которое корректно отправляет UUID задачи
+        // Обновлённое меню, которое отправляет URL задачи
         DropdownMenu(
             expanded = menuExpanded,
             onDismissRequest = { menuExpanded = false }
         ) {
-            if (item.status == "error") {
+            val targetIdentifier = item.url ?: item.id
+            
+            if (item.status == "downloading" || item.status == "pending") {
                 DropdownMenuItem(
-                    text = { Text("Повторить загрузку (Retry)") },
+                    text = { Text("Отменить загрузку") },
                     onClick = {
-                        item.id?.let { viewModel.retryAction(it) }
+                        targetIdentifier?.let { viewModel.cancelAction(it) }
+                        menuExpanded = false
+                    }
+                )
+            } else {
+                DropdownMenuItem(
+                    text = { Text("Удалить из списка") },
+                    onClick = {
+                        targetIdentifier?.let { viewModel.clearAction(it) }
                         menuExpanded = false
                     }
                 )
             }
-            DropdownMenuItem(
-                text = { Text("Удалить (Отменить)") },
-                onClick = {
-                    item.id?.let { viewModel.deleteAction(it) }
-                    menuExpanded = false
-                }
-            )
         }
     }
 }
