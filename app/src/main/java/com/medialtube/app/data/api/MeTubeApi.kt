@@ -33,25 +33,24 @@ data class DownloadItem(
     @SerializedName("quality") val quality: String? = null
 )
 
-data class IdsRequest(
-    @SerializedName("ids") val ids: List<String>
+// MeTube принимает строку "id", а не массив
+data class ActionRequest(
+    @SerializedName("id") val id: String
 )
 
 interface MeTubeApi {
     @POST("add")
     suspend fun addDownload(@Body request: AddRequest): Response<AddResponse>
 
-    // Возвращаем сырой JsonObject для ручного вытаскивания UUID
     @GET("history")
     suspend fun getHistory(): Response<JsonObject>
 
-    // Единственный верный метод удаления в MeTube
-    @POST("delete")
-    suspend fun deleteDownloads(@Body request: IdsRequest): Response<AddResponse>
+    // Рабочие эндпоинты сервера
+    @POST("cancel")
+    suspend fun cancelDownload(@Body request: ActionRequest): Response<AddResponse>
 
-    // Метод для повторного запуска
-    @POST("start")
-    suspend fun retryDownloads(@Body request: IdsRequest): Response<AddResponse>
+    @POST("clear")
+    suspend fun clearDownload(@Body request: ActionRequest): Response<AddResponse>
 }
 
 object NetworkClient {
